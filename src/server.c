@@ -79,6 +79,8 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
     memcpy(response + response_length, body, content_length);
     response_length += content_length;
 
+    printf("\n\n%s\n\n", response);
+
     // (void)response; // gets rid of warnings in terminal.
     // (void)fd; // gets rid of warnings in terminal
 
@@ -101,6 +103,7 @@ void get_d20(int fd)
     // Generate a random number between 1 and 20 inclusive
     int random_num = (rand() % 20) + 1;
     char response_body[16];
+    sprintf(response_body, "%d\n", random_num);
 
     // Use send_response() to send it back as text/plain data
     send_response(fd, "HTTP/1.1 200 OK", "text/plain", response_body, strlen(response_body));
@@ -187,9 +190,6 @@ void handle_http_request(int fd, struct cache *cache)
         perror("recv");
         return;
     }
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
 
     // Read the first two components of the first line of the request
     char request_type[8];
