@@ -55,9 +55,32 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
 
     // Build HTTP response and store it in response
 
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
+    // get the current time stamp
+    time_t t = time(NULL);   // t is a large integer representing time elapsed
+    struct tm *local_time = localtime(&t);
+    char *timestamp = asctime(local_time);
+
+    // stores the string in variable response.
+    // returns and stores the string length in variableresponse_length
+    int response_length = sprintf(response,
+        "%s\n"
+        "Connection: close\n"
+        "Content-Type: %s\n"
+        "Content-Length: %d\n"
+        "Date: %s\n",
+        header, 
+        content_type,
+        content_length,
+        timestamp
+    );
+
+    // memcopy will copy body into response. The amount of the body that is copied is specified by content_length.
+    // + response_length moves the pointer to the end of response, so we don't overwrite the data that's already in response.
+    memcpy(response + response_length, body, content_length);
+    response_length += content_length;
+
+    // (void)response; // gets rid of warnings in terminal.
+    // (void)fd; // gets rid of warnings in terminal
 
     // Send it all!
     int rv = send(fd, response, response_length, 0);
@@ -76,16 +99,11 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
 void get_d20(int fd)
 {
     // Generate a random number between 1 and 20 inclusive
-    
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
+    int random_num = (rand() % 20) + 1;
+    char response_body[16];
 
     // Use send_response() to send it back as text/plain data
-
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
+    send_response(fd, "HTTP/1.1 200 OK", "text/plain", response_body, strlen(response_body));
 }
 
 /**
@@ -119,9 +137,24 @@ void resp_404(int fd)
  */
 void get_file(int fd, struct cache *cache, char *request_path)
 {
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
+    char filepath[4096];
+    struct file_data *filedata;
+    char *mime_type;
+
+    snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, request_path);
+
+    filedata = file_load(filepath);
+
+    if (filedata == NULL)
+    {
+        resp_404(fd);
+    }
+    else
+    {
+        mime_type = mime_type_get(filepath);
+        send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
+        file_free(filedata);
+    }
 }
 
 /**
@@ -136,6 +169,8 @@ char *find_start_of_body(char *header)
     // IMPLEMENT ME! // (Stretch)
     ///////////////////
 }
+
+
 
 /**
  * Handle HTTP request and send response
@@ -152,29 +187,41 @@ void handle_http_request(int fd, struct cache *cache)
         perror("recv");
         return;
     }
-
-
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
 
-    // Read the first two components of the first line of the request 
+    // Read the first two components of the first line of the request
+    char request_type[8];
+    char request_path[1024];
+
+    sscanf(request, "%s %s", request_type, request_path);
  
     // If GET, handle the get endpoints
-
-    //    Check if it's /d20 and handle that special case
-    //    Otherwise serve the requested file by calling get_file()
+    if (strcmp(request_type, "GET") == 0) {
+        // Check if it's /d20 and handle that special case
+        if (strcmp(request_path, "/d20") == 0) {
+            get_d20(fd);
+        } else {
+            // Otherwise serve the requested file by calling get_file()
+            get_file(fd, cache, request_path);
+        }
+    }
 
 
     // (Stretch) If POST, handle the post request
 }
+
+
+
 
 /**
  * Main
  */
 int main(void)
 {
-    int newfd;  // listen on sock_fd, new connection on newfd
+
+    int newfd;  // listen on sock_fd, new connection on newfd. This is an int, bc it's a key
     struct sockaddr_storage their_addr; // connector's address information
     char s[INET6_ADDRSTRLEN];
 
