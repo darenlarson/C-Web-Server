@@ -74,12 +74,12 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
         timestamp
     );
 
+    printf("\n\n%s\n\n", response);
+
     // memcopy will copy body into response. The amount of the body that is copied is specified by content_length.
     // + response_length moves the pointer to the end of response, so we don't overwrite the data that's already in response.
     memcpy(response + response_length, body, content_length);
     response_length += content_length;
-
-    printf("\n\n%s\n\n", response);
 
     // (void)response; // gets rid of warnings in terminal.
     // (void)fd; // gets rid of warnings in terminal
@@ -90,6 +90,10 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
     if (rv < 0) {
         perror("send");
     }
+
+    printf("\n");
+    printf("RV: %d\n", rv);
+    printf("body: %s\n", body);
 
     return rv;
 }
@@ -140,23 +144,49 @@ void resp_404(int fd)
  */
 void get_file(int fd, struct cache *cache, char *request_path)
 {
-    char filepath[4096];
-    struct file_data *filedata;
-    char *mime_type;
+    // When a file is requested, first check to see if the path to the file is in the cache (use the file path as the key)
+    struct cache_entry *cache_entry = cache_get(cache, request_path);
 
-    snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, request_path);
+    if (cache_entry != NULL) {
+        // If it's there, serve it back
+        send_response(fd, "HTTP/1.1 200 OK", cache_entry->content_type, cache_entry->content, cache_entry->content_length);
 
-    filedata = file_load(filepath);
+    } else {
+        // if it's not there...
+        char filepath[4096];
+        struct file_data *filedata;
+        char *mime_type;
 
-    if (filedata == NULL)
-    {
-        resp_404(fd);
-    }
-    else
-    {
-        mime_type = mime_type_get(filepath);
-        send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
-        file_free(filedata);
+        snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, request_path);
+
+        printf("\n");
+        printf("SERVER_ROOT: %s\n", SERVER_ROOT);
+        printf("request_path: %s\n", request_path);
+        printf("filepath: %s\n", filepath);
+
+        // ...Load the file from the disk
+        filedata = file_load(filepath);
+
+        printf("filedata: %p\n", filedata);
+
+        // If the file doesn't exist, send 404
+        if (filedata == NULL) {
+            resp_404(fd);
+
+        // If file found...
+        } else {
+            printf("filepath passed into mime_type_get(): %s\n", filepath);
+            mime_type = mime_type_get(filepath);
+            printf("mime_type: %s\n", mime_type);
+
+            // Store it in the cache
+            cache_put(cache, request_path, mime_type, filedata->data, filedata->size);
+
+            // Serve the file
+            send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
+
+            file_free(filedata);
+        }
     }
 }
 
@@ -166,8 +196,7 @@ void get_file(int fd, struct cache *cache, char *request_path)
  * "Newlines" in HTTP can be \r\n (carriage return followed by newline) or \n
  * (newline) or \r (carriage return).
  */
-char *find_start_of_body(char *header)
-{
+char *find_start_of_body(char *header) {
     ///////////////////
     // IMPLEMENT ME! // (Stretch)
     ///////////////////
@@ -178,8 +207,7 @@ char *find_start_of_body(char *header)
 /**
  * Handle HTTP request and send response
  */
-void handle_http_request(int fd, struct cache *cache)
-{
+void handle_http_request(int fd, struct cache *cache) {
     const int request_buffer_size = 65536; // 64K
     char request[request_buffer_size];
 
@@ -191,11 +219,15 @@ void handle_http_request(int fd, struct cache *cache)
         return;
     }
 
-    // Read the first two components of the first line of the request
     char request_type[8];
     char request_path[1024];
 
+    // Read the first two components of the first line of the request
     sscanf(request, "%s %s", request_type, request_path);
+
+    printf("\n");
+    printf("request_type: %s\n", request_type);
+    printf("request_path: %s\n", request_path);
  
     // If GET, handle the get endpoints
     if (strcmp(request_type, "GET") == 0) {
