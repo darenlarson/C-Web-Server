@@ -48,20 +48,17 @@
  * 
  * Return the value from the send() function.
  */
-int send_response(int fd, char *header, char *content_type, void *body, int content_length)
-{
+int send_response(int fd, char *header, char *content_type, void *body, int content_length) {
     const int max_response_size = 262144;
     char response[max_response_size];
-
-    // Build HTTP response and store it in response
 
     // get the current time stamp
     time_t t = time(NULL);   // t is a large integer representing time elapsed
     struct tm *local_time = localtime(&t);
     char *timestamp = asctime(local_time);
 
-    // stores the string in variable response.
-    // returns and stores the string length in variableresponse_length
+    // Build HTTP response and store it in response
+    // Stores the length of the string in response_length. Stores the string itself in response
     int response_length = sprintf(response,
         "%s\n"
         "Connection: close\n"
@@ -74,15 +71,12 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
         timestamp
     );
 
-    printf("\n\n%s\n\n", response);
+    // printf("\n\n%s\n\n", response);
 
     // memcopy will copy body into response. The amount of the body that is copied is specified by content_length.
     // + response_length moves the pointer to the end of response, so we don't overwrite the data that's already in response.
     memcpy(response + response_length, body, content_length);
     response_length += content_length;
-
-    // (void)response; // gets rid of warnings in terminal.
-    // (void)fd; // gets rid of warnings in terminal
 
     // Send it all!
     int rv = send(fd, response, response_length, 0);
@@ -91,19 +85,17 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
         perror("send");
     }
 
-    printf("\n");
-    printf("RV: %d\n", rv);
-    printf("body: %s\n", body);
+    // printf("\n");
+    // printf("RV: %d\n", rv);
+    // printf("body: %s\n", body);
 
     return rv;
 }
 
 
-/**
- * Send a /d20 endpoint response
- */
-void get_d20(int fd)
-{
+
+ // Send a /d20 endpoint response
+void get_d20(int fd) {
     // Generate a random number between 1 and 20 inclusive
     int random_num = (rand() % 20) + 1;
     char response_body[16];
@@ -113,11 +105,9 @@ void get_d20(int fd)
     send_response(fd, "HTTP/1.1 200 OK", "text/plain", response_body, strlen(response_body));
 }
 
-/**
- * Send a 404 response
- */
-void resp_404(int fd)
-{
+
+// Send a 404 response
+void resp_404(int fd) {
     char filepath[4096];
     struct file_data *filedata; 
     char *mime_type;
@@ -139,11 +129,9 @@ void resp_404(int fd)
     file_free(filedata);
 }
 
-/**
- * Read and return a file from disk or cache
- */
-void get_file(int fd, struct cache *cache, char *request_path)
-{
+
+// Read and return a file from disk or cache
+void get_file(int fd, struct cache *cache, char *request_path) {
     // When a file is requested, first check to see if the path to the file is in the cache (use the file path as the key)
     struct cache_entry *cache_entry = cache_get(cache, request_path);
 
@@ -203,16 +191,17 @@ char *find_start_of_body(char *header) {
 }
 
 
-
-/**
- * Handle HTTP request and send response
- */
+// Handle HTTP request and send response
 void handle_http_request(int fd, struct cache *cache) {
     const int request_buffer_size = 65536; // 64K
     char request[request_buffer_size];
 
+    // printf("THE REQUEST!?!?!: %s\n", request);
+
     // Read request
     int bytes_recvd = recv(fd, request, request_buffer_size - 1, 0);
+
+    // printf("THE REQUEST!?!?!: %s\n", request);
 
     if (bytes_recvd < 0) {
         perror("recv");
@@ -226,6 +215,7 @@ void handle_http_request(int fd, struct cache *cache) {
     sscanf(request, "%s %s", request_type, request_path);
 
     printf("\n");
+    // printf("request!!!!: %s\n", request);
     printf("request_type: %s\n", request_type);
     printf("request_path: %s\n", request_path);
  
@@ -246,12 +236,8 @@ void handle_http_request(int fd, struct cache *cache) {
 
 
 
-
-/**
- * Main
- */
-int main(void)
-{
+// Main
+int main(void) {
 
     int newfd;  // listen on sock_fd, new connection on newfd. This is an int, bc it's a key
     struct sockaddr_storage their_addr; // connector's address information
@@ -269,15 +255,14 @@ int main(void)
 
     printf("webserver: waiting for connections on port %s...\n", PORT);
 
+
     // This is the main loop that accepts incoming connections and
     // responds to the request. The main parent process
-    // then goes back to waiting for new connections.
-    
+    // then goes back to waiting for new connections.    
     while(1) {
         socklen_t sin_size = sizeof their_addr;
 
-        // Parent process will block on the accept() call until someone
-        // makes a new connection:
+        // Parent process will block on the accept() call until someone makes a new connection:
         newfd = accept(listenfd, (struct sockaddr *)&their_addr, &sin_size);
         if (newfd == -1) {
             perror("accept");
