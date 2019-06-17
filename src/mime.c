@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include "mime.h"
@@ -21,7 +22,10 @@ char *strlower(char *s)
  */
 char *mime_type_get(char *filename)
 {
+    // strrchr() searches for the last occurrence of the inputed character
     char *ext = strrchr(filename, '.');
+
+    printf("ext in mime_type_get(): %s\n", ext);
 
     if (ext == NULL) {
         return DEFAULT_MIME_TYPE;
